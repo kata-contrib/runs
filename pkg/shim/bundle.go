@@ -16,6 +16,100 @@
 
 package shim
 
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/containerd/containerd/identifiers"
+	"github.com/containerd/typeurl"
+	//	"github.com/containerd/containerd/namespaces"
+)
+
+const configFilename = "config.json"
+
+// NewBundle returns a new bundle on disk
+func NewBundle(ctx context.Context, state, id string, spec typeurl.Any) (b *Bundle, err error) {
+	if err := identifiers.Validate(id); err != nil {
+		return nil, fmt.Errorf("invalid task id %s: %w", id, err)
+	}
+
+	//	ns, err := namespaces.NamespaceRequired(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	path, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	work := filepath.Join("/run/runs/", id)
+	b = &Bundle{
+		ID:        id,
+		Path:      path,
+		Namespace: "default",
+	}
+	/*
+		if err := os.Symlink("/home/vagrant/test/rootfs", filepath.Join(b.Path, "rootfs")); err != nil {
+			return nil, err
+		}
+	*/
+	var paths []string
+	defer func() {
+		if err != nil {
+			for _, d := range paths {
+				os.RemoveAll(d)
+			}
+		}
+	}()
+	// // create state directory for the bundle
+	// if err := os.MkdirAll(filepath.Dir(b.Path), 0711); err != nil {
+	// 	return nil, err
+	// }
+	// if err := os.Mkdir(b.Path, 0700); err != nil {
+	// 	return nil, err
+	// }
+	// if typeurl.Is(spec, &specs.Spec{}) {
+	// 	if err := prepareBundleDirectoryPermissions(b.Path, spec.GetValue()); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	paths = append(paths, b.Path)
+	// // create working directory for the bundle
+	// if err := os.MkdirAll(filepath.Dir(work), 0711); err != nil {
+	// 	return nil, err
+	// }
+	rootfs := filepath.Join(b.Path, "rootfs")
+	if err := os.MkdirAll(rootfs, 0711); err != nil {
+		return nil, err
+	}
+	paths = append(paths, rootfs)
+	if err := os.Mkdir(work, 0711); err != nil {
+		if !os.IsExist(err) {
+			return nil, err
+		}
+		// 	os.RemoveAll(work)
+		// 	if err := os.Mkdir(work, 0711); err != nil {
+		// 		return nil, err
+		// 	}
+	}
+	paths = append(paths, work)
+	// // symlink workdir
+	if err := os.Symlink(work, filepath.Join(b.Path, "work")); err != nil {
+		return nil, err
+	}
+	if spec := spec.GetValue(); spec != nil {
+		// write the spec to the bundle
+		err = os.WriteFile(filepath.Join(b.Path, configFilename), spec, 0666)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write %s", configFilename)
+		}
+	}
+	return b, nil
+}
+
 // Bundle represents an OCI bundle
 type Bundle struct {
 	// ID of the bundle

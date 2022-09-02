@@ -62,11 +62,18 @@ func loadAddress(path string) (string, error) {
 }
 
 func LoadShim(ctx context.Context, bundle *Bundle, onClose func()) (_ *shimTask, err error) {
+
+	fmt.Printf("id: \n")
 	address, err := loadAddress(filepath.Join(bundle.Path, "address"))
+	fmt.Printf("load shim %s\n", address)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("id: \n")
 	conn, err := client.Connect(address, client.AnonReconnectDialer)
+	fmt.Printf("invalid task  %w\n", err)
+	fmt.Printf("5id: \n")
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +82,8 @@ func LoadShim(ctx context.Context, bundle *Bundle, onClose func()) (_ *shimTask,
 			conn.Close()
 		}
 	}()
+
+	fmt.Printf("4id: \n")
 	shimCtx, cancelShimLog := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {
@@ -85,6 +94,8 @@ func LoadShim(ctx context.Context, bundle *Bundle, onClose func()) (_ *shimTask,
 	if err != nil {
 		return nil, fmt.Errorf("open shim log pipe when reload: %w", err)
 	}
+
+	fmt.Printf("3id: \n")
 	defer func() {
 		if err != nil {
 			f.Close()
@@ -109,6 +120,8 @@ func LoadShim(ctx context.Context, bundle *Bundle, onClose func()) (_ *shimTask,
 		cancelShimLog()
 		f.Close()
 	}
+
+	fmt.Printf("2id: \n")
 	client := ttrpc.NewClient(conn, ttrpc.WithOnClose(onCloseWithShimLog))
 	defer func() {
 		if err != nil {
@@ -125,6 +138,7 @@ func LoadShim(ctx context.Context, bundle *Bundle, onClose func()) (_ *shimTask,
 	ctx, cancel := timeout.WithContext(ctx, loadTimeout)
 	defer cancel()
 
+	fmt.Printf("id: \n")
 	// Check connectivity
 	if _, err := s.PID(ctx); err != nil {
 		return nil, err
@@ -136,6 +150,8 @@ func cleanupAfterDeadShim(ctx context.Context, id, ns string, rt *runtime.TaskLi
 	ctx = namespaces.WithNamespace(ctx, ns)
 	ctx, cancel := timeout.WithContext(ctx, cleanupTimeout)
 	defer cancel()
+
+	log.G(ctx).Errorf("ns is %+v", ns)
 
 	log.G(ctx).WithFields(logrus.Fields{
 		"id":        id,

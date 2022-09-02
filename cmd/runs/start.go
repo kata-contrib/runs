@@ -4,16 +4,15 @@ import (
 	sctx "context"
 	"errors"
 	"fmt"
-
-	"github.com/opencontainers/runc/libcontainer"
-
-	"github.com/urfave/cli"
+	"os"
 
 	"github.com/containerd/containerd/namespaces"
-	"github.com/containerd/containerd/protobuf"
-	"github.com/containerd/containerd/runtime"
+	"github.com/opencontainers/runc/libcontainer"
 
+	//	"github.com/containerd/containerd/runtime"
+	"github.com/containerd/containerd/errdefs"
 	"github.com/kata-contrib/runs/pkg/shim"
+	"github.com/urfave/cli"
 )
 
 var startCommand = cli.Command{
@@ -26,8 +25,33 @@ are starting. The name you provide for the container instance must be unique on
 your host.`,
 	Description: `The start command executes the user defined process in a created container.`,
 	Action: func(context *cli.Context) error {
-		if err := checkArgs(context, 1, exactArgs); err != nil {
-			return err
+		// if err := checkArgs(context, 1, exactArgs); err != nil {
+		// 	return err
+		// }
+		var (
+			id  string
+			ref string
+		//      config = context.IsSet("config")
+		)
+
+		fmt.Println("number: %w\n", context.NArg())
+
+		if 1 == 1 {
+			id = context.Args().First()
+			if context.NArg() > 1 {
+				return fmt.Errorf("with spec config file, only container id should be provided: %w", errdefs.ErrInvalidArgument)
+			}
+		} else {
+			id = context.Args().Get(1)
+			ref = context.Args().First()
+			if ref == "" {
+				return fmt.Errorf("image ref must be provided: %w", errdefs.ErrInvalidArgument)
+			}
+		}
+		if id == "" {
+			id = context.GlobalString("id")
+			fmt.Println("number: %w\n", id)
+			// return fmt.Errorf("container id must be provided: %w", errdefs.ErrInvalidArgument)
 		}
 		// container, err := getContainer(context)
 		// if err != nil {
@@ -43,48 +67,38 @@ your host.`,
 
 			ctx := namespaces.WithNamespace(sctx.Background(), "default")
 
-			shimManager, err := shim.NewShimManager(ctx, &shim.ManagerConfig{
-				State:        "/var/run/runs",
-				Address:      "/run/containerd/containerd.sock",
-				TTRPCAddress: "/run/containerd/containerd.sock.ttrpc",
-			})
-			if err != nil {
-				return err
-			}
-			spec, err := loadSpec(specConfig)
+			//			id := context.GlobalString("id")
+
+			fmt.Printf("id: %+v\n", id)
+
+			path, err := os.Getwd()
 			if err != nil {
 				return err
 			}
 
-			specAny, err := protobuf.MarshalAnyToProto(spec)
+			fmt.Printf("id: %+v\n", id)
+			bundle := &shim.Bundle{
+				ID:        id,
+				Path:      path,
+				Namespace: "default",
+			}
+
+			fmt.Printf("id: %+v\n", id)
+			task, err := shim.LoadShim(ctx, bundle, func() {})
 			if err != nil {
 				return err
 			}
-
-			opts := runtime.CreateOpts{
-				Spec: specAny,
-				// IO: runtime.IO{
-				// 	Stdin:    r.Stdin,
-				// 	Stdout:   r.Stdout,
-				// 	Stderr:   r.Stderr,
-				// 	Terminal: r.Terminal,
-				// },
-				// TaskOptions:    r.Options,
-				// SandboxID:      container.SandboxID,
+			state, err := task.State(ctx)
+			if err != nil {
+				// return err
 			}
 
-			opts.Runtime = "io.containerd.runc.v2"
+			// FIXME check state.
 
-			// for _, m := range r.Rootfs {
-			// 	opts.Rootfs = append(opts.Rootfs, mount.Mount{
-			// 		Type:    m.Type,
-			// 		Source:  m.Source,
-			// 		Options: m.Options,
-			// 	})
-			// }
+			fmt.Printf("state error: %+v\n", err)
+			fmt.Printf("state: %+v\n", state)
 
-			taskManager := shim.NewTaskManager(shimManager)
-			task, err := taskManager.Create(ctx, "abc", opts)
+			// task, err := findTask(context)
 			if err != nil {
 				return err
 			}

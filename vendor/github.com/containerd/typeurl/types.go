@@ -52,8 +52,8 @@ type Any interface {
 }
 
 type any struct {
-	typeURL string
-	value   []byte
+	typeURL string `json:"type_url"`
+	value   []byte `json:"value"`
 }
 
 func (a *any) GetTypeUrl() string {

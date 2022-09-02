@@ -62,6 +62,7 @@ type binary struct {
 }
 
 func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ *shim, err error) {
+
 	args := []string{"-id", b.bundle.ID}
 	switch logrus.GetLevel() {
 	case logrus.DebugLevel, logrus.TraceLevel:
@@ -79,18 +80,24 @@ func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ 
 			Opts:         opts,
 			Args:         args,
 		})
+	//	out, err := cmd.CombinedOutput()
+	//	log.G(ctx).WithError(err).Error("log 000000000000 %s", string(out))
+	//	log.G(ctx).WithError(err).Error("log 000000000000")
+
 	if err != nil {
 		return nil, err
 	}
 	// Windows needs a namespace when openShimLog
 	ns, _ := namespaces.Namespace(ctx)
 	shimCtx, cancelShimLog := context.WithCancel(namespaces.WithNamespace(context.Background(), ns))
+
 	defer func() {
 		if err != nil {
 			cancelShimLog()
 		}
 	}()
 	f, err := openShimLog(shimCtx, b.bundle, client.AnonDialer)
+
 	if err != nil {
 		return nil, fmt.Errorf("open shim log pipe: %w", err)
 	}
@@ -102,6 +109,7 @@ func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ 
 	// open the log pipe and block until the writer is ready
 	// this helps with synchronization of the shim
 	// copy the shim's logs to containerd's output
+
 	go func() {
 		defer f.Close()
 		_, err := io.Copy(os.Stderr, f)
@@ -109,11 +117,13 @@ func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ 
 		// should be reset, like os.ErrClosed or os.ErrNotExist, which
 		// depends on platform.
 		err = checkCopyShimLogError(ctx, err)
+
 		if err != nil {
 			log.G(ctx).WithError(err).Error("copy shim log")
 		}
 	}()
 	out, err := cmd.CombinedOutput()
+
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", out, err)
 	}

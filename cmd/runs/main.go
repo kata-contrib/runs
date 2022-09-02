@@ -94,6 +94,22 @@ func main() {
 			Value: root,
 			Usage: "root directory for storage of container state (this should be located in tmpfs)",
 		},
+		cli.StringFlag{
+			Name:  "namespace",
+			Usage: "namespace to publish to",
+		},
+		cli.StringFlag{
+			Name:  "address",
+			Usage: "namespace to publish to",
+		},
+		cli.StringFlag{
+			Name:  "publish-binary",
+			Usage: "namespace to publish to",
+		},
+		cli.StringFlag{
+			Name:  "id",
+			Usage: "namespace to publish to",
+		},
 		// cli.StringFlag{
 		// 	Name:   "criu",
 		// 	Usage:  "(obsoleted; do not use)",
@@ -116,7 +132,7 @@ func main() {
 		// eventsCommand,
 		// execCommand,
 		killCommand,
-		// listCommand,
+		listCommand,
 		// pauseCommand,
 		// psCommand,
 		// restoreCommand,
