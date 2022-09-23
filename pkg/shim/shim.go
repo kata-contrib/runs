@@ -401,9 +401,17 @@ func (s *shimTask) Exec(ctx context.Context, id string, opts runtime.ExecOpts) (
 		Terminal: opts.IO.Terminal,
 		Spec:     opts.Spec,
 	}
+	fmt.Printf("state error: \n")
+	fmt.Printf("state error: %+v\n", s.ID())
+	fmt.Printf("state error: %+v\n", id)
+	fmt.Printf("state error: %+v\n", opts.IO.Stdin)
+	fmt.Printf("state error: %+v\n", opts.IO.Stdout)
+	fmt.Printf("state error: %+v\n", opts.IO.Stderr)
+	fmt.Printf("state error: %+v\n", opts.IO.Terminal)
 	if _, err := s.task.Exec(ctx, request); err != nil {
 		return nil, errdefs.FromGRPC(err)
 	}
+	fmt.Printf("state error: \n")
 	return &process{
 		id:   id,
 		shim: s,

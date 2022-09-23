@@ -5,12 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/containerd/protobuf"
+	"github.com/containerd/containerd/runtime"
+	"github.com/containerd/fifo"
 	"github.com/opencontainers/runc/libcontainer"
 
 	//	"github.com/containerd/containerd/runtime"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/kata-contrib/runs/pkg/cio"
 	"github.com/kata-contrib/runs/pkg/shim"
 	"github.com/urfave/cli"
 )
@@ -84,11 +89,11 @@ your host.`,
 			}
 
 			fmt.Printf("id: %+v\n", id)
-			task, err := shim.LoadShim(ctx, bundle, func() {})
+			tasks, err := shim.LoadShim(ctx, bundle, func() {})
 			if err != nil {
 				return err
 			}
-			state, err := task.State(ctx)
+			state, err := tasks.State(ctx)
 			if err != nil {
 				// return err
 			}
@@ -103,15 +108,70 @@ your host.`,
 				return err
 			}
 
-			err = task.Start(ctx)
+			// err = tasks.Start(ctx)
+			// if err != nil {
+			// 	return err
+			// }
+
+			stdinC := &stdinCloser{
+				stdin: os.Stdin,
+			}
+
+			ioOpts := []cio.Opt{cio.WithFIFODir(context.String("fifo-dir"))}
+			ioCreator := cio.NewCreator(append([]cio.Opt{cio.WithStreams(stdinC, os.Stdout, os.Stderr)}, ioOpts...)...)
+			i, err := ioCreator(id)
+			cfg := i.Config()
+
+			spec, err := loadSpec(specConfig)
 			if err != nil {
 				return err
 			}
-			pid, err := task.PID(ctx)
+
+			specAny, err := protobuf.MarshalAnyToProto(spec)
+			fmt.Printf("state error: %+v\n", specAny)
+			pspecAny, err := protobuf.MarshalAnyToProto(spec.Process)
+			opts := runtime.ExecOpts{
+				Spec: pspecAny,
+				IO: runtime.IO{
+					Stdin:    cfg.Stdin,
+					Stdout:   cfg.Stdout,
+					Stderr:   cfg.Stderr,
+					Terminal: cfg.Terminal,
+				},
+			}
+			fmt.Printf("state error: %+v\n", err)
+
+			attach := cio.NewAttach(cio.WithStdio)
+			fifoSet := attachExistingIO(cfg)
+			_, err = attach(fifoSet)
+			fmt.Printf("state error: %+v\n", err)
+
+			if _, err := tasks.Exec(ctx, id, opts); err != nil {
+				return err
+			}
+
+			fmt.Printf("state error: %+v\n", err)
+			err = tasks.Start(ctx)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("state error: %+v\n", err)
+
+			pid, err := tasks.PID(ctx)
 			if err != nil {
 				return err
 			}
 			fmt.Printf("pid %d\n", pid)
+
+			state, err = tasks.State(ctx)
+			if err != nil {
+				// return err
+			}
+
+			// FIXME check state.
+
+			fmt.Printf("state error: %+v\n", err)
+			fmt.Printf("state: %+v\n", state)
 
 			return nil
 		case libcontainer.Stopped:
@@ -122,4 +182,40 @@ your host.`,
 			return fmt.Errorf("cannot start a container in the %s state", status)
 		}
 	},
+}
+
+func attachExistingIO(cfg cio.Config) *cio.FIFOSet {
+	fifos := []string{
+		cfg.Stdin,
+		cfg.Stdout,
+		cfg.Stderr,
+	}
+	closer := func() error {
+		var (
+			err  error
+			dirs = map[string]struct{}{}
+		)
+		for _, f := range fifos {
+			if isFifo, _ := fifo.IsFifo(f); isFifo {
+				if rerr := os.Remove(f); err == nil {
+					err = rerr
+				}
+				dirs[filepath.Dir(f)] = struct{}{}
+			}
+		}
+		for dir := range dirs {
+			// we ignore errors here because we don't
+			// want to remove the directory if it isn't
+			// empty
+			os.Remove(dir)
+		}
+		return err
+	}
+
+	return cio.NewFIFOSet(cio.Config{
+		Stdin:    cfg.Stdin,
+		Stdout:   cfg.Stdout,
+		Stderr:   cfg.Stderr,
+		Terminal: cfg.Terminal,
+	}, closer)
 }
