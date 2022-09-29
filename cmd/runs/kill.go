@@ -81,48 +81,34 @@ signal to the init process of the "ubuntu01" container:
 		if err != nil {
 			return err
 		}
-		state, err := s.State(ctx)
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("state error: %+v\n", err)
-		fmt.Printf("state: %+v\n", state)
 
 		err = s.Kill(ctx, uint32(signal), context.Bool("all"))
 
 		if err != nil {
 			return err
 		}
-		fmt.Printf("kill error: %+v\n", err)
 
-		state, err = s.State(ctx)
+		_, err = s.Wait(ctx)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("state error: %+v\n", err)
-		fmt.Printf("state: %+v\n", state)
-
-		wait, err := s.Wait(ctx)
-		if err != nil {
-			// return err
-		}
-
-		fmt.Printf("wait error: %+v\n", err)
-		fmt.Printf("wait: %+v\n", wait)
 
 		err = s.Shutdown(ctx)
 		if err != nil {
-			// return err
+			return err
 		}
-		fmt.Printf("Shutdown error: %+v\n", err)
 
-		state, err = s.State(ctx)
+		state, err := s.State(ctx)
 		if err != nil {
-			// return err
+			return err
 		}
-		fmt.Printf("state error: %+v\n", err)
+
+		if err := shim.SaveContainerState(ctx, id, state.Status, state.Pid); err != nil {
+			return err
+		}
+
 		fmt.Printf("state: %+v\n", state)
+
 		return nil
 	},
 }

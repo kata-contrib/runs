@@ -173,6 +173,10 @@ your host.`,
 			fmt.Printf("state error: %+v\n", err)
 			fmt.Printf("state: %+v\n", state)
 
+			if err := shim.SaveContainerState(ctx, id, state.Status, state.Pid); err != nil {
+				return err
+			}
+
 			return nil
 		case libcontainer.Stopped:
 			return errors.New("cannot start a container that has stopped")

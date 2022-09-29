@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/containerd/containerd/errdefs"
@@ -91,6 +92,11 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 
 		if err != nil {
 			return err
+		}
+
+		path = filepath.Join(context.GlobalString("root"), id)
+		if e := os.RemoveAll(path); e != nil {
+			fmt.Fprintf(os.Stderr, "remove %s: %v\n", path, e)
 		}
 
 		return nil
