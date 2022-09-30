@@ -78,18 +78,8 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 		if err != nil {
 			return err
 		}
-		state, err := s.State(ctx)
-		if err != nil {
-			return err
-		}
 
-		fmt.Printf("state error: %+v\n", err)
-		fmt.Printf("state: %+v\n", state)
-
-		exit, err := s.Delete(ctx, false, func(ctx sctx.Context, id string) {})
-		fmt.Printf("exit error: %+v\n", err)
-		fmt.Printf("exit: %+v\n", exit)
-
+		_, err = s.Delete(ctx, false, func(ctx sctx.Context, id string) {})
 		if err != nil {
 			return err
 		}

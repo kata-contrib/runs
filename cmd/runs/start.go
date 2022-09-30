@@ -31,8 +31,6 @@ your host.`,
 			ref string
 		)
 
-		fmt.Println("number: %w\n", context.NArg())
-
 		if 1 == 1 {
 			id = context.Args().First()
 			if context.NArg() > 1 {
@@ -47,7 +45,6 @@ your host.`,
 		}
 		if id == "" {
 			id = context.GlobalString("id")
-			fmt.Println("number: %w\n", id)
 		}
 
 		s, _ := loadStates(context)

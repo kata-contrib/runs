@@ -107,8 +107,6 @@ signal to the init process of the "ubuntu01" container:
 			return err
 		}
 
-		fmt.Printf("state: %+v\n", state)
-
 		return nil
 	},
 }
