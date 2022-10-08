@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli"
 	"golang.org/x/sys/unix"
 
+	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/kata-contrib/runs/pkg/shim"
 )
@@ -34,6 +35,29 @@ signal to the init process of the "ubuntu01" container:
 		},
 	},
 	Action: func(context *cli.Context) error {
+		var (
+			id string
+		)
+
+		id = context.Args().First()
+		if context.NArg() > 1 {
+			return fmt.Errorf("with spec config file, only container id should be provided: %w", errdefs.ErrInvalidArgument)
+		}
+
+		if id == "" {
+			return fmt.Errorf("container id must be provided: %w", errdefs.ErrInvalidArgument)
+		}
+
+		sigstr := context.Args().Get(1)
+		if sigstr == "" {
+			sigstr = "SIGTERM"
+		}
+
+		signal, err := parseSignal(sigstr)
+		if err != nil {
+			return err
+		}
+
 		if err := checkArgs(context, 1, minArgs); err != nil {
 			return err
 		}
@@ -48,7 +72,7 @@ signal to the init process of the "ubuntu01" container:
 			return err
 		}
 		bundle := &shim.Bundle{
-			ID:        "abc",
+			ID:        id,
 			Path:      path,
 			Namespace: "default",
 		}
@@ -57,73 +81,33 @@ signal to the init process of the "ubuntu01" container:
 		if err != nil {
 			return err
 		}
-		state, err := s.State(ctx)
-		if err != nil {
-			// return err
-		}
 
-		// FIXME check state.
-
-		fmt.Printf("state error: %+v\n", err)
-		fmt.Printf("state: %+v\n", state)
-
-		// step 1: kill
-		err = s.Kill(ctx, 9, false)
-		if err != nil {
-			// return err
-		}
-		fmt.Printf("kill error: %+v\n", err)
-
-		state, err = s.State(ctx)
-		if err != nil {
-			// return err
-		}
-
-		wait, err := s.Wait(ctx)
-		if err != nil {
-			// return err
-		}
-
-		fmt.Printf("wait error: %+v\n", err)
-		fmt.Printf("wait: %+v\n", wait)
-
-		err = s.Shutdown(ctx)
-		if err != nil {
-			// return err
-		}
-		fmt.Printf("Shutdown error: %+v\n", err)
-
-		state, err = s.State(ctx)
-		if err != nil {
-			// return err
-		}
-		fmt.Printf("state error: %+v\n", err)
-		fmt.Printf("state: %+v\n", state)
+		err = s.Kill(ctx, uint32(signal), context.Bool("all"))
 
 		if err != nil {
 			return err
 		}
 
-		// step 2: delete shim
-		exit, err := s.Delete(ctx, false, func(ctx sctx.Context, id string) {})
-		fmt.Printf("exit error: %+v\n", err)
-		fmt.Printf("exit: %+v\n", exit)
-
+		_, err = s.Wait(ctx)
 		if err != nil {
+			return err
+		}
+
+		err = s.Shutdown(ctx)
+		if err != nil {
+			return err
+		}
+
+		state, err := s.State(ctx)
+		if err != nil {
+			return err
+		}
+
+		if err := shim.SaveContainerState(ctx, id, state.Status, state.Pid); err != nil {
 			return err
 		}
 
 		return nil
-		// sigstr := context.Args().Get(1)
-		// if sigstr == "" {
-		// 	sigstr = "SIGTERM"
-		// }
-
-		// signal, err := parseSignal(sigstr)
-		// if err != nil {
-		// 	return err
-		// }
-		// return container.Signal(signal, context.Bool("all"))
 	},
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/protobuf"
 	"github.com/containerd/containerd/runtime"
-	"github.com/kata-contrib/runs/pkg/cio"
 	"github.com/kata-contrib/runs/pkg/shim"
 	"golang.org/x/sys/unix"
 
@@ -84,24 +83,24 @@ your host.`,
 			return err
 		}
 
-		stdinC := &stdinCloser{
-			stdin: os.Stdin,
-		}
+		// stdinC := &stdinCloser{
+		// 	stdin: os.Stdin,
+		// }
 
-		ioOpts := []cio.Opt{cio.WithFIFODir(context.String("fifo-dir"))}
-		ioCreator := cio.NewCreator(append([]cio.Opt{cio.WithStreams(stdinC, os.Stdout, os.Stderr)}, ioOpts...)...)
+		// ioOpts := []cio.Opt{cio.WithFIFODir(context.String("fifo-dir"))}
+		// ioCreator := cio.NewCreator(append([]cio.Opt{cio.WithStreams(stdinC, os.Stdout, os.Stderr)}, ioOpts...)...)
 
-		i, err := ioCreator(id)
-		cfg := i.Config()
+		// i, err := ioCreator(id)
+		// cfg := i.Config()
 
 		opts := runtime.CreateOpts{
 			Spec: specAny,
-			IO: runtime.IO{
-				Stdin:    cfg.Stdin,
-				Stdout:   cfg.Stdout,
-				Stderr:   cfg.Stderr,
-				Terminal: cfg.Terminal,
-			},
+			// IO: runtime.IO{
+			// 	Stdin:    cfg.Stdin,
+			// 	Stdout:   cfg.Stdout,
+			// 	Stderr:   cfg.Stderr,
+			// 	Terminal: cfg.Terminal,
+			// },
 		}
 
 		opts.Runtime = "io.containerd.kata.v2"

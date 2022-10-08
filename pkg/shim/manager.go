@@ -306,7 +306,7 @@ func (m *TaskManager) Create(ctx context.Context, taskID string, opts runtime.Cr
 
 	state, _ := shim.State(ctx)
 
-	if err := saveContainerState(ctx, taskID, state.Status, state.Pid, opts); err != nil {
+	if err := SaveContainerState(ctx, taskID, state.Status, state.Pid); err != nil {
 		return nil, err
 	}
 
@@ -347,7 +347,7 @@ const (
 	stateFilename = "state.json"
 )
 
-func saveContainerState(ctx sctx.Context, taskID string, status runtime.Status, pid uint32, opts runtime.CreateOpts) error {
+func SaveContainerState(ctx sctx.Context, taskID string, status runtime.Status, pid uint32) error {
 	containerRoot, err := securejoin.SecureJoin("/run/runs", taskID)
 	tmpFile, err := os.CreateTemp(containerRoot, "state.json")
 	if err != nil {

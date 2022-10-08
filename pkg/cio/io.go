@@ -125,8 +125,10 @@ func WithStreams(stdin io.Reader, stdout, stderr io.Writer) Opt {
 // WithFIFODir sets the fifo directory.
 // e.g. "/run/containerd/fifo", "/run/users/1001/containerd/fifo"
 func WithFIFODir(dir string) Opt {
+	fmt.Println("cannot attach, missing fifos %s", dir)
 	return func(opt *Streams) {
 		opt.FIFODir = dir
+		fmt.Println("cannot attach, missing fifos %s", dir)
 	}
 }
 
@@ -134,7 +136,10 @@ func WithFIFODir(dir string) Opt {
 func NewCreator(opts ...Opt) Creator {
 	streams := &Streams{}
 	for _, opt := range opts {
+		fmt.Println("cannot attach, missing fifos")
 		opt(streams)
+		fmt.Println("cannot attach, missing fifos %s", streams.FIFODir)
+		fmt.Println("cannot attach, missing fifos %s", streams.Stdin)
 	}
 	if streams.FIFODir == "" {
 		streams.FIFODir = defaults.DefaultFIFODir

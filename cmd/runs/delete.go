@@ -1,12 +1,16 @@
 package main
 
 import (
+	sctx "context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/namespaces"
+	"github.com/kata-contrib/runs/pkg/shim"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/urfave/cli"
 
@@ -45,41 +49,44 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 		},
 	},
 	Action: func(context *cli.Context) error {
-		if err := checkArgs(context, 1, exactArgs); err != nil {
+		var (
+			id string
+		)
+
+		id = context.Args().First()
+		if context.NArg() > 1 {
+			return fmt.Errorf("with spec config file, only container id should be provided: %w", errdefs.ErrInvalidArgument)
+		}
+
+		if id == "" {
+			return fmt.Errorf("container id must be provided: %w", errdefs.ErrInvalidArgument)
+		}
+
+		ctx := namespaces.WithNamespace(sctx.Background(), "default")
+
+		path, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		bundle := &shim.Bundle{
+			ID:        id,
+			Path:      path,
+			Namespace: "default",
+		}
+
+		s, err := shim.LoadShim(ctx, bundle, func() {})
+		if err != nil {
 			return err
 		}
 
-		id := context.Args().First()
-		force := context.Bool("force")
-		container, err := getContainer(context)
-		if err != nil {
-			if errors.Is(err, libcontainer.ErrNotExist) {
-				// if there was an aborted start or something of the sort then the container's directory could exist but
-				// libcontainer does not see it because the state.json file inside that directory was never created.
-				path := filepath.Join(context.GlobalString("root"), id)
-				if e := os.RemoveAll(path); e != nil {
-					fmt.Fprintf(os.Stderr, "remove %s: %v\n", path, e)
-				}
-				if force {
-					return nil
-				}
-			}
-			return err
-		}
-		s, err := container.Status()
+		_, err = s.Delete(ctx, false, func(ctx sctx.Context, id string) {})
 		if err != nil {
 			return err
 		}
-		switch s {
-		case libcontainer.Stopped:
-			destroy(container)
-		case libcontainer.Created:
-			return killContainer(container)
-		default:
-			if force {
-				return killContainer(container)
-			}
-			return fmt.Errorf("cannot delete container %s that is not stopped: %s", id, s)
+
+		path = filepath.Join(context.GlobalString("root"), id)
+		if e := os.RemoveAll(path); e != nil {
+			fmt.Fprintf(os.Stderr, "remove %s: %v\n", path, e)
 		}
 
 		return nil
